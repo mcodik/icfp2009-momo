@@ -84,45 +84,35 @@ public class VirtualMachine {
 			traceBuffer.clear();
 			
 			List<InputAction> currentFrame = null; 
-			for (int i = 0; i < trace.size();) {
+			for (int i = 0; i < trace.size(); i += currentFrame.size()) {
 				int time = trace.get(i).t;
-				traceBuffer.putLong(time);
+				traceBuffer.putInt(time);
 				currentFrame = new ArrayList<InputAction>();
+				currentFrame.add(trace.get(i));
 				
-				for (; i < trace.size(); i++) {
-					InputAction ia = trace.get(i);
+				for (int k = i+1; k < trace.size(); k++) {
+					InputAction ia = trace.get(k);
 					if (ia.t == time) {
 						currentFrame.add(ia);
 					}
-					else if (ia.t > time) {
-						traceBuffer.putInt(currentFrame.size());
-						for (InputAction cfia : currentFrame) {
-							traceBuffer.putInt(cfia.addr);
-							traceBuffer.putDouble(cfia.value);
-						}
-						out.write(buf, 0, traceBuffer.position());
-						traceBuffer.clear();
-					}
 				}
-			}
-			
-			if (currentFrame.size() > 0) {
+				
 				traceBuffer.putInt(currentFrame.size());
 				for (InputAction cfia : currentFrame) {
 					traceBuffer.putInt(cfia.addr);
 					traceBuffer.putDouble(cfia.value);
 				}
+				
 				out.write(buf, 0, traceBuffer.position());
 				traceBuffer.clear();
 			}
-			
+				
 			traceBuffer.putInt(iteration+1);
 			traceBuffer.putInt(0);
 			out.write(buf, 0, traceBuffer.position());
 			traceBuffer.clear();
 
 			out.flush();
-
 		}
 		finally {
 			out.close();
@@ -187,7 +177,7 @@ public class VirtualMachine {
 		//System.out.println("loaded " + frame + " frames from " + filename);
 	}
 	
-	public void run(int configuration, int maxIterations, IFn beforeCallback) {
+	public void run(int configuration, int maxIterations, IFn callback) {
 
 		this.configuration = configuration;
 		
@@ -200,25 +190,27 @@ public class VirtualMachine {
 		
 		for (iteration = 0; iteration < maxIterations; iteration++) {
 			
-			try {
-				if (beforeCallback != null) {
-					beforeCallback.invoke(this);
-				}
-			}
-			catch (Exception e) {
-				e.printStackTrace();
-			}
-			
 			runIteration();
 			
-			if (getOutput(0) > 0.0) {
+			if (getOutput(0) != 0.0) {
 				System.err.println("Configuration " + configuration + " done after " + iteration + " iterations, score: " + getOutput(0));
 				try {
-					emitTrace("traces/" + configuration + "-" + getOutput(0) + ".txt");
+					emitTrace("traces/" + configuration + "-" + getOutput(0) + ".trace");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 				return;
+			}
+			else {
+				try {
+					if (callback != null) {
+						callback.invoke(this);
+					}
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+
 			}
 		}
 		
