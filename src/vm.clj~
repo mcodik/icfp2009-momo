@@ -1,0 +1,4 @@
+
+
+(def data-memory (ref (init-region (Math/pow 2 14))))
+(def instruction-memory (ref (init-region (Math/pow 2 14))))
