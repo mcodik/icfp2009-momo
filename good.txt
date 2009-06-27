@@ -1,0 +1,266 @@
+0: noop
+1: copy r265          
+2: noop
+3: noop
+4: copy r248          
+5: sub r4 r3       
+6: cmpz EQZ, r5     
+7: phi r2 r1       
+8: sub r7 r0       
+9: copy r263          
+10: cmpz EQZ, r5     
+11: phi r0 r9       
+12: sub r11 r0       
+13: cmpz EQZ, r12     
+14: phi r8 r7       
+15: copy r264          
+16: noop
+17: cmpz EQZ, r5     
+18: phi r16 r15       
+19: noop
+20: mult r18 r19      
+21: cmpz EQZ, r12     
+22: phi r20 r18       
+23: cmpz EQZ, r12     
+24: phi r18 r12       
+25: copy r260          
+26: copy r262          
+27: noop
+28: noop
+29: mult r28 r16      
+30: div r29 r27       
+31: noop
+32: input r16000         
+33: sub r32 r31       
+34: cmpz EQZ, r33     
+35: phi r30 r3       
+36: noop
+37: div r29 r36       
+38: noop
+39: sub r32 r38       
+40: cmpz EQZ, r39     
+41: phi r37 r35       
+42: div r29 r19       
+43: noop
+44: sub r32 r43       
+45: cmpz EQZ, r44     
+46: phi r42 r41       
+47: noop
+48: sub r32 r47       
+49: cmpz EQZ, r48     
+50: phi r29 r46       
+51: cmpz EQZ, r5     
+52: phi r50 r26       
+53: copy r255          
+54: noop
+55: noop
+56: cmpz EQZ, r33     
+57: phi r55 r3       
+58: cmpz EQZ, r39     
+59: phi r54 r57       
+60: noop
+61: cmpz EQZ, r44     
+62: phi r60 r59       
+63: cmpz EQZ, r48     
+64: phi r54 r62       
+65: cmpz EQZ, r5     
+66: phi r64 r53       
+67: copy r250          
+68: cmpz EQZ, r5     
+69: phi r3 r67       
+70: sub r69 r66       
+71: mult r70 r70      
+72: copy r249          
+73: cmpz EQZ, r5     
+74: phi r3 r72       
+75: copy r254          
+76: cmpz EQZ, r33     
+77: phi r54 r3       
+78: noop
+79: cmpz EQZ, r39     
+80: phi r78 r77       
+81: noop
+82: cmpz EQZ, r44     
+83: phi r81 r80       
+84: noop
+85: cmpz EQZ, r48     
+86: phi r84 r83       
+87: cmpz EQZ, r5     
+88: phi r86 r75       
+89: sub r74 r88       
+90: mult r89 r89      
+91: add r90 r71       
+92: sqrt r91          
+93: mult r92 r92      
+94: mult r93 r92      
+95: copy r251          
+96: noop
+97: cmpz EQZ, r5     
+98: phi r96 r95       
+99: noop
+100: mult r99 r98      
+101: div r100 r94       
+102: mult r70 r101      
+103: input r3         
+104: div r0 r0       
+105: div r103 r104       
+106: add r105 r102       
+107: mult r104 r104      
+108: div r107 r19       
+109: mult r106 r108      
+110: copy r258          
+111: noop
+112: cmpz EQZ, r39     
+113: phi r111 r77       
+114: noop
+115: cmpz EQZ, r44     
+116: phi r114 r113       
+117: noop
+118: cmpz EQZ, r48     
+119: phi r117 r116       
+120: cmpz EQZ, r5     
+121: phi r119 r110       
+122: mult r121 r104      
+123: add r66 r122       
+124: add r123 r109       
+125: sub r124 r69       
+126: mult r125 r125      
+127: mult r89 r101      
+128: input r2         
+129: div r128 r104       
+130: add r129 r127       
+131: mult r130 r108      
+132: copy r257          
+133: noop
+134: cmpz EQZ, r33     
+135: phi r133 r3       
+136: cmpz EQZ, r39     
+137: phi r54 r135       
+138: cmpz EQZ, r44     
+139: phi r114 r137       
+140: cmpz EQZ, r48     
+141: phi r54 r139       
+142: cmpz EQZ, r5     
+143: phi r141 r132       
+144: mult r143 r104      
+145: add r88 r144       
+146: add r145 r131       
+147: sub r146 r74       
+148: mult r147 r147      
+149: add r148 r126       
+150: sqrt r149          
+151: sub r150 r52       
+152: sub r3 r151       
+153: sub r151 r3       
+154: cmpz LTZ, r153     
+155: phi r152 r151       
+156: add r25 r155       
+157: mult r105 r105      
+158: mult r129 r129      
+159: add r158 r157       
+160: sqrt r159          
+161: sub r160 r3       
+162: cmpz EQZ, r161     
+163: phi r156 r3       
+164: sub r155 r16       
+165: cmpz LTZ, r164     
+166: phi r163 r3       
+167: sub r69 r124       
+168: mult r167 r167      
+169: sub r74 r146       
+170: mult r169 r169      
+171: add r170 r168       
+172: sqrt r171          
+173: mult r172 r172      
+174: mult r173 r172      
+175: div r100 r174       
+176: mult r167 r175      
+177: add r176 r102       
+178: div r177 r19       
+179: add r105 r178       
+180: mult r179 r104      
+181: add r121 r180       
+182: mult r169 r175      
+183: add r182 r127       
+184: div r183 r19       
+185: add r129 r184       
+186: mult r185 r104      
+187: add r143 r186       
+188: copy r256          
+189: noop
+190: cmpz EQZ, r33     
+191: phi r189 r3       
+192: cmpz EQZ, r39     
+193: phi r189 r191       
+194: cmpz EQZ, r44     
+195: phi r189 r193       
+196: cmpz EQZ, r48     
+197: phi r189 r195       
+198: cmpz EQZ, r5     
+199: phi r197 r188       
+200: copy r253          
+201: cmpz EQZ, r5     
+202: phi r3 r200       
+203: copy r252          
+204: cmpz EQZ, r5     
+205: phi r3 r203       
+206: add r4 r0       
+207: copy r259          
+208: add r207 r0       
+209: cmpz EQZ, r161     
+210: phi r208 r3       
+211: cmpz LTZ, r164     
+212: phi r210 r3       
+213: copy r261          
+214: noop
+215: cmpz EQZ, r5     
+216: phi r214 r213       
+217: mult r160 r104      
+218: sub r216 r217       
+219: noop
+220: noop
+221: sub r214 r218       
+222: div r221 r214       
+223: mult r222 r220      
+224: add r7 r223       
+225: add r224 r219       
+226: noop
+227: div r226 r104       
+228: sub r227 r212       
+229: cmpz LTZ, r228     
+230: phi r225 r3       
+231: sub r218 r3       
+232: sub r242 r0       
+233: cmpz LTZ, r231     
+234: phi r232 r230       
+235: sub r214 r217       
+236: cmpz LTZ, r235     
+237: phi r232 r234       
+238: noop
+239: sub r150 r238       
+240: cmpz LTZ, r239     
+241: phi r232 r237       
+242: noop
+243: output r0 r241    
+244: output r1 r218    
+245: output r2 r169    
+246: output r3 r167    
+247: output r4 r52    
+248: copy r206          
+249: copy r74          
+250: copy r69          
+251: copy r98          
+252: copy r205          
+253: copy r202          
+254: copy r146          
+255: copy r124          
+256: copy r199          
+257: copy r187          
+258: copy r181          
+259: copy r212          
+260: copy r166          
+261: copy r218          
+262: copy r52          
+263: copy r24          
+264: copy r22          
+265: copy r14          
