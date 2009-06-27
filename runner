@@ -1,9 +1,7 @@
 #! /bin/bash
 
-CLASSPATH=bin:src:lib/clojure-1.0.0.jar:lib/clojure-contrib.jar:lib/jline-0.9.94.jar
-if [ -z "$1" ]; then 
-     java -cp $CLASSPATH \
-          jline.ConsoleRunner clojure.lang.Repl    
-else
-     java -cp $CLASSPATH clojure.lang.Script $1
-fi
+CLASSPATH=bin:src:clj-out:lib/clojure-1.0.0.jar:lib/clojure-contrib.jar:lib/jline-0.9.94.jar
+
+java -cp $CLASSPATH -Dclojure.compile.path=clj-out clojure.lang.Compile $1
+
+java -cp $CLASSPATH $1
