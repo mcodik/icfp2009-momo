@@ -1,37 +1,137 @@
 package com.mauricecodik.icfp2009;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+
+import clojure.lang.IFn;
 
 public class VirtualMachine {
 	
 	public static void main(String[] args) throws Exception {
 		String filename = args[0];
-		long configuration = Long.parseLong(args[1]);
+		int configuration = Integer.parseInt(args[1]);
 		
 		VirtualMachine vm = new VirtualMachine();
 		vm.load(filename);
-		vm.run(configuration);
+		vm.run(configuration, 100, null);
 	}
 	
 	public VirtualMachine() {
-		// 16385
 		input = new double[16385];
 		output = new double[16385];
 		data = new double[16385];
 		program = new long[16385];
 	}
 
-	public double[] data; 
-	public long[] program; 
+	private double[] data; 
+	private long[] program; 
 	
-	public double[] input;
-	public double[] output;
+	private double[] input;
+	private double[] output;
+	
+	private int iteration;
 
 	boolean status = false;
+	
+	private List<InputAction> trace;
+	private int configuration;
+	
+	private class InputAction {
+		int t;
+		int addr;
+		double value;
+	}
+	
+	public int getCurrentIteration() {
+		return iteration;
+	}
+	
+	public void setInput(int addr, double value) {
+		if (trace == null) {
+			trace = new ArrayList<InputAction>();
+		}
+		
+		input[addr] = value;
+		
+		InputAction ia = new InputAction();
+		ia.t = iteration;
+		ia.addr = addr;
+		ia.value = value;
+		
+		trace.add(ia);
+	}
+	
+	public void emitTrace(String filename) throws IOException {
+		BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(filename));
+		try {
+			byte[] buf = new byte[4096];
+			ByteBuffer traceBuffer = ByteBuffer.wrap(buf);
+			traceBuffer.order(ByteOrder.LITTLE_ENDIAN);
+			traceBuffer.putInt(0xCAFEBABE);
+			traceBuffer.putInt(668);
+			traceBuffer.putInt(configuration);
+			
+			out.write(buf, 0, traceBuffer.position());
+			
+			traceBuffer.clear();
+			
+			List<InputAction> currentFrame = null; 
+			for (int i = 0; i < trace.size();) {
+				int time = trace.get(i).t;
+				traceBuffer.putLong(time);
+				currentFrame = new ArrayList<InputAction>();
+				
+				for (; i < trace.size(); i++) {
+					InputAction ia = trace.get(i);
+					if (ia.t == time) {
+						currentFrame.add(ia);
+					}
+					else if (ia.t > time) {
+						traceBuffer.putInt(currentFrame.size());
+						for (InputAction cfia : currentFrame) {
+							traceBuffer.putInt(cfia.addr);
+							traceBuffer.putDouble(cfia.value);
+						}
+						out.write(buf, 0, traceBuffer.position());
+						traceBuffer.clear();
+					}
+				}
+			}
+			
+			if (currentFrame.size() > 0) {
+				traceBuffer.putInt(currentFrame.size());
+				for (InputAction cfia : currentFrame) {
+					traceBuffer.putInt(cfia.addr);
+					traceBuffer.putDouble(cfia.value);
+				}
+				out.write(buf, 0, traceBuffer.position());
+				traceBuffer.clear();
+			}
+			
+			traceBuffer.putInt(iteration+1);
+			traceBuffer.putInt(0);
+			out.write(buf, 0, traceBuffer.position());
+			traceBuffer.clear();
+
+			out.flush();
+
+		}
+		finally {
+			out.close();
+		}
+	}
+	
+	public double getOutput(int addr) {
+		return output[addr];
+	}
 	
 	public void load(String filename) throws Exception {
 
@@ -43,8 +143,7 @@ public class VirtualMachine {
 		byte[] buf = new byte[12];
 		int frame = 0;
 		try {
-			int read;
-			while ((read = inputStream.read(buf, 0, 12)) > 0) {
+			while (inputStream.read(buf, 0, 12) > 0) {
 				
 				if (frame > data.length) {
 					throw new Exception("reading more than " + data.length + " frames?");
@@ -59,18 +158,18 @@ public class VirtualMachine {
 				if (frame % 2 == 0) {
 					datum = bb.getDouble();
 
-//					System.out.println("read double: " + datum);
+//					//System.out.println("read double: " + datum);
 					instruction = bb.getInt();
 
-					//System.out.println("read int: " + Integer.toHexString(instruction));
+					////System.out.println("read int: " + Integer.toHexString(instruction));
 				}
 				else {
 					instruction = bb.getInt();
-					//System.out.println("read int: " + Integer.toHexString(instruction));
+					////System.out.println("read int: " + Integer.toHexString(instruction));
 
 					datum = bb.getDouble();
 
-					//System.out.println("read double: " + datum);
+					////System.out.println("read double: " + datum);
 				}
 				
 				data[frame] = datum;
@@ -85,22 +184,48 @@ public class VirtualMachine {
 			inputStream.close();
 		}
 		
-		System.out.println("loaded " + frame + " frames from " + filename);
+		//System.out.println("loaded " + frame + " frames from " + filename);
 	}
 	
-	public void run(long configuration) {
+	public void run(int configuration, int maxIterations, IFn beforeCallback) {
 
+		this.configuration = configuration;
+		
 		Arrays.fill(input, 0.0);
 		Arrays.fill(output, 0.0);
 
-		input[0x3e80] = configuration;
+		setInput(0x3e80, configuration);
 		
-		System.out.println("Running configuration " + configuration);
+		//System.out.println("Running configuration " + configuration);
 		
-		for (int iteration = 0; iteration < 10; iteration++) {
+		for (iteration = 0; iteration < maxIterations; iteration++) {
+			
+			try {
+				if (beforeCallback != null) {
+					beforeCallback.invoke(this);
+				}
+			}
+			catch (Exception e) {
+				e.printStackTrace();
+			}
+			
 			runIteration();
+			
+			if (getOutput(0) > 0.0) {
+				System.err.println("Configuration " + configuration + " done after " + iteration + " iterations, score: " + getOutput(0));
+				try {
+					emitTrace("traces/" + configuration + "-" + getOutput(0) + ".txt");
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				return;
+			}
 		}
+		
+		System.err.println("Aborting configuration " + configuration + " after max " + iteration + " iterations");
 	}
+	
+	
 	
 	public int opcode(long instruction) {
 		return (int)((instruction >> 28) & 0xF);
@@ -133,7 +258,7 @@ public class VirtualMachine {
 		try {
 			if (opcode == 0) {
 				if (program[pc] != 0) {
-					System.out.println(Long.toHexString(program[pc]) + ": NOOP");
+					//System.out.println(Long.toHexString(program[pc]) + ": NOOP");
 				}
 				return; 
 			}
@@ -142,23 +267,23 @@ public class VirtualMachine {
 				int comparator = (int)((immediate>>7)&7);
 				if (comparator == 0) {
 					status = (data[addr] < 0);
-					System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] < 0 == " + status);
+					//System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] < 0 == " + status);
 				}
 				else if (comparator == 1) {
 					status = (data[addr] <= 0);
-					System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] <= 0 == " + status);
+					//System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] <= 0 == " + status);
 				}
 				else if (comparator == 2) {
 					status = (data[addr] == 0);
-					System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] == 0 == " + status);
+					//System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] == 0 == " + status);
 				}
 				else if (comparator == 3) {
 					status = (data[addr] >= 0);
-					System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] >= 0 == " + status);
+					//System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] >= 0 == " + status);
 				}
 				else if (comparator == 1) {
 					status = (data[addr] > 0);
-					System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] > 0 == " + status);
+					//System.out.println(Long.toHexString(program[pc]) + ": mem[" + addr + "] > 0 == " + status);
 				}
 				else {
 					throw new RuntimeException("Bad CMP instruction: opcode = " + opcode + "; imm = " + immediate + "; addr = " + addr);
@@ -168,19 +293,19 @@ public class VirtualMachine {
 			
 			if (opcode == 2) {
 				data[pc] = Math.sqrt( data[addr] );
-				System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- sqrt(mem[" + addr + "]) == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- sqrt(mem[" + addr + "]) == " + data[pc]);
 				return;
 			}
 			
 			if (opcode == 3) {
 				data[pc] = data[addr];
-				System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr + "] == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr + "] == " + data[pc]);
 				return;
 			}
 			
 			if (opcode == 4) {
 				data[pc] = input[addr];
-				System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- input[" + addr + "] == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- input[" + addr + "] == " + data[pc]);
 				return;
 			}
 		}
@@ -194,19 +319,19 @@ public class VirtualMachine {
 		try { 
 			if (opcode == 1) {
 				data[pc] = data[addr1] + data[addr2];
-				System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] + mem[" + addr2 + "] == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] + mem[" + addr2 + "] == " + data[pc]);
 				return;
 			}
 			
 			if (opcode == 2) {
 				data[pc] = data[addr1] - data[addr2];
-				System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] - mem[" + addr2 + "] == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] - mem[" + addr2 + "] == " + data[pc]);
 				return;
 			}
 			
 			if (opcode == 3) {
 				data[pc] = data[addr1] * data[addr2];
-				System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] * mem[" + addr2 + "] == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] * mem[" + addr2 + "] == " + data[pc]);
 				return;
 			}
 			
@@ -219,13 +344,13 @@ public class VirtualMachine {
 					data[pc] = data[addr1] / data[addr2];
 				}
 				
-				System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] / mem[" + addr2 + "] == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": mem[" + pc + "] <- mem[" + addr1 + "] / mem[" + addr2 + "] == " + data[pc]);
 				return;
 			}
 			
 			if (opcode == 5) {
 				output[addr1] = data[addr2];
-				System.out.println(Long.toHexString(program[pc]) + ": output[" + addr1 + "] <- mem[" + addr1 + "] == " + output[addr1]);
+				//System.out.println(Long.toHexString(program[pc]) + ": output[" + addr1 + "] <- mem[" + addr1 + "] == " + output[addr1]);
 				return;
 			}
 			
@@ -234,7 +359,7 @@ public class VirtualMachine {
 				int src = status ? addr1 : addr2;
 				data[pc] = data[src];
 	
-				System.out.println(Long.toHexString(program[pc]) + ": if " + status + ": mem[" + pc + "] <- mem[" + src + "] == " + data[pc]);
+				//System.out.println(Long.toHexString(program[pc]) + ": if " + status + ": mem[" + pc + "] <- mem[" + src + "] == " + data[pc]);
 				return;			
 			}
 		}
