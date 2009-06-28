@@ -29,8 +29,8 @@
 	    sy (. vm getOutput 3)
 	    bx (. vm getOutput 4)
 	    by (. vm getOutput 5)
-	    px (- bx sx)
-	    py (- by sy)
+	    px (- sx bx)
+	    py (- sy by)
 	    data { :score (. vm getOutput 0)
 		  :fuel (. vm getOutput 1)
 		  :sx sx
@@ -127,18 +127,19 @@
     (set-solver (waiting-solver until (fn [data] { :vx 0 :vy 0 }) next-solver))
     newv))
   
-(defn hohman-solver [data]
-  (let [deltav (hohman-entry-deltav (:current-radius data) (:target-radius data))
-	exit-deltav (hohman-exit-deltav (:current-radius data) (:target-radius data))
-	eta (+ (:t data) (hohman-duration (:current-radius data) (:target-radius data)))
-	exit-solver 
-	  (fn [data2] 
-	      (println "hohmann exit: current altitude: " (:current-radius data2)
-		       " computed exit dv = " exit-deltav)
-	      (burn data2 1 exit-deltav noop))]
-    (println "hohmann entry: current altitude: " (:current-radius data) 
-	     " computed entry dv = " deltav " eta " eta)
-    (burn data 1 deltav (waiting-solver eta exit-solver exit-solver))))
+(defn hohman-solver [next-solver]
+  (fn [data]
+      (let [deltav (hohman-entry-deltav (:current-radius data) (:target-radius data))
+	    exit-deltav (hohman-exit-deltav (:current-radius data) (:target-radius data))
+	    eta (+ (:t data) (hohman-duration (:current-radius data) (:target-radius data)))
+	    exit-solver 
+	    (fn [data2] 
+		(println "hohmann exit: current altitude: " (:current-radius data2)
+			 " computed exit dv = " exit-deltav)
+		(burn data2 1 exit-deltav next-solver))]
+	(println "hohmann entry: current altitude: " (:current-radius data) 
+		 " computed entry dv = " deltav " eta " eta)
+	(burn data 1 deltav (waiting-solver eta exit-solver exit-solver)))))
 
 (defn vec-diff [x1 y1 x2 y2]
      { :sx (- x2 x1) :sy (- y2 y1) })
@@ -182,8 +183,13 @@
 	     "norm=" (:target-radius data))
 
     (if (> 1000 error)
-      (do (set-solver hohman-solver)
-	  (hohman-solver data))
+      (let [s (hohman-solver (fn [d2]
+				 (println "arrived: " d2 "distance from other sattelite"
+					  (vec-norm (:bx d2) (:by d2)))
+				 (set-solver noop)
+				 {}))]
+	(set-solver s)
+	(s data))
       {})))
 
 (defn prediction-solver
@@ -223,8 +229,8 @@
   (let [config (Integer/parseInt configs)]
     (cond
      (and (> 1000 config) (< 2000 config))
-     (do
-       (set-solver (waiting-solver 3 hohman-solver hohman-solver))
+     (let [s (hohman-solver noop)]
+       (set-solver (waiting-solver 3 s s))
        (doto (new VirtualMachine)
 	 (. load "problems/bin1.obf")
 	 (. run config 100000 (compute-hohman solve))))
