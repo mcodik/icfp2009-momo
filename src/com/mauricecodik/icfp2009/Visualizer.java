@@ -4,10 +4,15 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -35,8 +40,6 @@ public class Visualizer extends JFrame {
 	public int toPx(double pos) {
 		return (int) ((pos * scale) + (dim/2));
 	}
-	
-	private Map<String, Set<Point>> points = new HashMap<String, Set<Point>>();
 	
 	private Set<Ellipse> ellipses = new HashSet<Ellipse>();
 	
@@ -88,40 +91,13 @@ public class Visualizer extends JFrame {
 		}
 	}
 
+	private Map<String, List<Point>> points = new HashMap<String, List<Point>>();
+	
 	private class Point {
 		int x; int y;
 		public Point(double x, double y) {
 			this.x = toPx(x);
 			this.y = toPx(y);
-		}
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + getOuterType().hashCode();
-			result = prime * result + x;
-			result = prime * result + y;
-			return result;
-		}
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			Point other = (Point) obj;
-			if (!getOuterType().equals(other.getOuterType()))
-				return false;
-			if (x != other.x)
-				return false;
-			if (y != other.y)
-				return false;
-			return true;
-		}
-		private Visualizer getOuterType() {
-			return Visualizer.this;
 		}
 	}
 	
@@ -130,24 +106,25 @@ public class Visualizer extends JFrame {
 	}
 	
 	public synchronized void addPoint(String name, double x, double y) {
-		Set<Point> pts = points.get(name);
+		List<Point> pts = points.get(name);
 		if (pts == null) {
-			pts = new HashSet<Point>();
+			pts = new ArrayList<Point>();
 			points.put(name, pts);
 		}
-		//System.out.println("adding point: " + x + " " + y);
-		if (pts.size() > 100) {
-			pts.clear();
+		
+		if (pts.size() > 200) {
+			pts.subList(0, 199).clear();
 		}
 		
-		pts.add(new Point(x,y));
+		Point p = new Point(x,y);
+		pts.add(p);
 	}
 	
 	private class VizPanel extends JPanel {
 		@Override
 		public void paint(Graphics g) {
 			super.paint(g);
-			
+
 			BufferedImage img = new BufferedImage(dim, dim, BufferedImage.TYPE_INT_ARGB);
 			
 			Graphics bg = img.getGraphics();
@@ -159,29 +136,32 @@ public class Visualizer extends JFrame {
 			int i = 0;
 			//System.out.println("draw!");
 			synchronized (Visualizer.this) {
-			for (Ellipse c : ellipses) {
-				if (i > colors.length) {
-					i = 0;
-				}
-				bg.setColor(colors[i]);
-				bg.drawOval(c.x-(c.r1/2), c.y-(c.r2/2), c.r1, c.r2);
-				//System.out.println("drawing oval of radius: " + c.r1 + " at (" + c.x + ", " + c.y + ")");
-				i++;
-			}
-			
-			for (String name : points.keySet()) {
-				if (i > colors.length) {
-					i = 0;
-				}
-
-				for (Point p : points.get(name)) {
+				for (Ellipse c : ellipses) {
+					if (i > colors.length-1) {
+						i = 0;
+					}
 					bg.setColor(colors[i]);
-					bg.fillRect(p.x, p.y, 2, 2);
-				//	System.out.println("  drawing point: " + p.x + ", " + p.y);
+					bg.drawOval(c.x-(c.r1), c.y-(c.r2), 2*c.r1, 2*c.r2);
+					//System.out.println("drawing oval of radius: " + c.r1 + " at (" + c.x + ", " + c.y + ")");
+					i++;
 				}
-
-				i++;
-			}
+				
+				int k = 0;
+				
+				for (String name : points.keySet()) {
+					if (i > colors.length) {
+						i = 0;
+					}
+	
+					for (Point p : points.get(name)) {
+						bg.setColor(colors[i]);
+						bg.fillRect(p.x, p.y, 2, 2);
+						k++;
+					//	System.out.println("  drawing point: " + p.x + ", " + p.y);
+					}
+	
+					i++;
+				}
 			}
 			g.drawImage(img, 0, 0, null);
 		}
