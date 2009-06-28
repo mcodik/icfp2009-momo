@@ -1,5 +1,5 @@
 (ns com.mauricecodik.icfp2009.vm_runner
-    (:import (com.mauricecodik.icfp2009 VirtualMachine Visualizer))
+    (:import (com.mauricecodik.icfp2009 VirtualMachine))
     (:gen-class))
 
 (def prev-data (ref { :sx 0 :sy 0 }))
@@ -17,10 +17,10 @@
                   :t (. vm getCurrentIteration) 
 		  :current-radius (vec-norm (. vm getOutput 2) (. vm getOutput 3))}
 	    output (inner data)]
-;	(println data " -> " output)
+	(println data " -> " output)
 	(if (contains? output :vx) (. vm setInput 2 (double (:vx output))))
 	(if (contains? output :vy) (. vm setInput 3 (double (:vy output))))
-;	(dosync (ref-set prev-data data))
+	(dosync (ref-set prev-data data))
 )))
 
 (def earth-size 6357000.0)
@@ -31,21 +31,9 @@
     { :x (* norm (Math/sin theta))
      :y (* norm (Math/cos theta)) }))
 
-(defn visualize-hohman [inner]
-  (let [viz (new Visualizer 900 (/ 1.0 100000.0))]
-    (fn [data]
-	(if (= (mod (:t data) 100) 0)
-	  (let [coords (vec->coords (:sx data) (:sy data))]
-	    (doto viz
-	      (. addCircle 0 0 earth-size)
-	      (. addCircle 0 0 (:target-radius data))
-	      (. addPoint "me" (:x coords) (:y coords))
-	      (. repaint))))
-	  (inner data))))
-
 (defn current-velocity [x y] 
-  { :vx (- (:sx @prev-data) x) 
-    :vy (- (:sy @prev-data) y)  })
+  { :vx (- x (:sx @prev-data)) 
+    :vy (- y (:sy @prev-data))  })
 
 (defn apply-deltav [currentv deltav] 
   (let [theta (Math/atan2 (:vx currentv) (:vy currentv))]
@@ -60,29 +48,47 @@
 (defn hohman-exit-deltav [r1 r2]
   (* (Math/sqrt (/ mu r1)) (- (Math/sqrt (/ (* 2 r2) (+ r1 r2))) 1)))
 
-(defn solve-hohman [data]
-  (cond 
-   (= 3 (:t data)) 
-     (let [current-orbit (:current-radius data)
-	   target (:target-radius data)
-	   deltav (hohman-entry-deltav current-orbit target)
-	   currentv (current-velocity (:sx data) (:sy data))
-	   newv (apply-deltav currentv deltav)]
-       ;(println "computed: dv = " deltav " newv = " newv)
-       newv)
-   (= 4 (:t data)) { :vx 0 :vy 0 }
-   :otherwise {}))
-
-(defn hardcode-hohman [data]
-  (cond
-   (= 3 (:t data)) {:vx 10.1234123412 :vy 2466.1324123412}
-   (= 4 (:t data)) { :vx 0 :vy 0 }
-   :otherwise {}))
-
 (defn noop [data] {})
 
+(def current-solver (ref noop))
+
+(defn stabilize [next-solver]
+     (dosync (ref-set current-solver next-solver))
+     { :vx 0 :vy 0 })
+
+(defn stabilize-next-iter [next-solver]
+     (dosync (ref-set current-solver
+		      (fn [data] (stabilize next-solver)))))
+
+(defn exit-solver [data]
+     (if (> 1000.0 (Math/abs (- (:target-radius data) (:current-radius data))))
+       (let [deltav (hohman-entry-deltav (:current-radius data) (:target-radius data))
+	     currentv (current-velocity (:sx data) (:sy data))
+	     newv (apply-deltav currentv deltav)]
+	 (println "hohmann exit: current altitude: " (:current-radius data)  " current v = " currentv 
+		  " computed entry dv = " deltav " newv " newv)
+	 (stabilize-next-iter noop)
+	 newv)
+       {}))
+
+(defn entry-solver [data]
+     (cond 
+      (= 3 (:t data)) 
+        (let [deltav (hohman-entry-deltav (:current-radius data) (:target-radius data))
+	      currentv (current-velocity (:sx data) (:sy data))
+	      newv (apply-deltav currentv deltav)]
+	  (println "hohmann entry: current altitude: " (:current-radius data) " current v = " currentv 
+		   " computed entry dv = " deltav " newv " newv)
+	  newv)
+      (= 4 (:t data)) (stabilize exit-solver)
+      :otherwise {}))
+
+
+(defn solve-hohman [data] (@current-solver data))
+
 (defn -main []
+  (dosync (ref-set current-solver entry-solver))
   (doto (new VirtualMachine)
     (. load "problems/bin1.obf")
-    (. run 1001 100000 (compute-hohman (visualize-hohman solve-hohman)))
-))
+    (. run 1001 100000 (compute-hohman solve-hohman)))
+)

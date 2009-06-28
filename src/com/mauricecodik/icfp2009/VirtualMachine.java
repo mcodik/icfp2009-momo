@@ -226,7 +226,9 @@ public class VirtualMachine {
 			double mey = getOutput(3);
 			vz.addCircle(0, 0, target);
 			vz.addCircle(0, 0, 6357000.0);
-			vz.addPoint("me", mex, mey);
+			
+			if (iteration % 50 == 0)
+				vz.addPoint("me", mex, mey);
 			
 			vz.repaint();
 			

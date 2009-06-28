@@ -1,6 +1,9 @@
 #! /bin/bash
 
-CLASSPATH=bin:src:clj-out:lib/clojure-1.0.0.jar:lib/clojure-contrib.jar:lib/jline-0.9.94.jar
+CLASSPATH=src:bin:clj-out:lib/clojure-1.0.0.jar:lib/clojure-contrib.jar:lib/jline-0.9.94.jar
+
+rm -rf clj-out
+mkdir clj-out
 
 java -cp $CLASSPATH -Dclojure.compile.path=clj-out clojure.lang.Compile $1
 
