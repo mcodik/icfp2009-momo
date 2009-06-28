@@ -204,8 +204,6 @@ public class VirtualMachine {
 		//System.out.println("loaded " + frame + " frames from " + filename);
 	}
 	
-	private Visualizer vz;
-	
 	public void run(int configuration, int maxIterations, IFn callback) {
 
 		this.configuration = configuration;
@@ -215,7 +213,13 @@ public class VirtualMachine {
 
 		setInput(0x3e80, configuration);
 		
-		vz 	= new Visualizer(900, 1.0/100000.0);
+		Visualizer vz;
+		if (configuration > 1000 && configuration < 2000) {
+			vz = new Visualizer(900, 1.0/100000.0);
+		}
+		else {
+			vz = new Visualizer(900, 1.0/50000.0);
+		}
 		
 		for (iteration = 0; iteration < maxIterations; iteration++) {
 			
@@ -224,7 +228,7 @@ public class VirtualMachine {
 			double mex = getOutput(2);
 			double mey = getOutput(3);
 			
-			if (configuration > 1000 && configuration < 1000) {
+			if (configuration > 1000 && configuration < 2000) {
 				double target = getOutput(4);
 				vz.addCircle(0, 0, target);
 			}

@@ -23,16 +23,22 @@
 	(dosync (ref-set prev-data data))
 )))
 
-
 (defn compute-meet-and-greet [inner]
   (fn [vm]
-      (let [data { :score (. vm getOutput 0)
+      (let [sx (. vm getOutput 2)
+	    sy (. vm getOutput 3)
+	    bx (. vm getOutput 4)
+	    by (. vm getOutput 5)
+	    data { :score (. vm getOutput 0)
 		  :fuel (. vm getOutput 1)
-		  :sx (. vm getOutput 2)
-		  :sy (. vm getOutput 3)
-		  :bx (. vm getOutput 4)
-		  :by (. vm getOutput 5)
-		  :current-radius (vec-norm (. vm getOutput 2) (. vm getOutput 3))
+		  :sx sx
+		  :sy sy
+		  :bx bx
+		  :by by
+		  :current-radius (vec-norm sx sy)
+		  :target-radius (vec-norm bx by)
+		  :px (- bx sx)
+		  :py (- by sy)
                   :t (. vm getCurrentIteration) }
 	    output (inner data)]
 ;	(println data " -> " output)
@@ -53,6 +59,10 @@
   { :vx (- x (:sx @prev-data))
     :vy (- y (:sy @prev-data))  })
 
+(defn their-current-velocity [x y] 
+  { :vx (- x (:px @prev-data))
+    :vy (- y (:py @prev-data))  })
+
 (defn apply-deltav [currentv deltav] 
   (let [theta (Math/atan2 (:vx currentv) (:vy currentv))]
     { :vx (* deltav (Math/sin theta))
@@ -69,6 +79,19 @@
 (defn hohman-duration [r1 r2]
   (int (Math/round (* Math/PI (Math/sqrt (/ (Math/pow (+ r1 r2) 3) (* 8 mu)))))))
 
+(defn predict-circular-position [x y deltat]
+     (let [r (vec-norm x y)
+	   theta (Math/atan2 x y)
+	   phi (+ theta (* deltat (Math/sqrt (/ mu (* r r r)))))]
+       { :sx (* r (Math/sin phi)) :sy (* r (Math/cos phi)) }))
+
+(defn hohman-mirror [x y current-radius target-radius]
+  (let [r (+ current-radius target-radius)
+	theta (Math/atan2 x y)
+	deltat (hohman-duration current-radius target-radius)
+	phi (+ theta (* deltat (Math/sqrt (/ mu (* r r r)))))]
+    { :sx (* r (Math/sin phi)) :sy (* r (Math/cos phi)) }))
+  
 (defn noop [data] {})
 
 (def current-solver (ref noop))
@@ -114,9 +137,77 @@
 	     " computed entry dv = " deltav " eta " eta)
     (burn data 1 deltav (waiting-solver eta exit-solver exit-solver))))
 
-(defn -main []
-  ;(set-solver (waiting-solver 3 hohman-solver hohman-solver))
 
+(defn vec-diff [x1 y1 x2 y2]
+     { :sx (- x2 x1) :sy (- y2 y1) })
+
+(defn simulate-object [now until x y vx vy]
+  (cond
+   (= now until) { :sx x :sy y :vx vx :vy vy }
+   :otherwise
+     (let [theta (Math/atan2 x y)
+	   r (vec-norm x y)
+	   gt (/ mu (* r r))
+	   gtx (* gt (Math/cos theta))
+	   gty (* gt (Math/sin theta))
+	   x1 (+ x vx (/ gtx 2.0))
+	   y1 (+ y vy (/ gty 2.0))
+	   r1 (vec-norm x1 y1)
+	   gt1 (/ mu (* r1 r1))
+	   gtx1 (* gt1 (Math/cos theta))
+	   gty1 (* gt1 (Math/sin theta))
+	   vx1 (+ vx (/ (+ gtx gtx1) 2.0))
+	   vy1 (+ vy (/ (+ gty gty1) 2.0))]
+;       (println "simulation" now "sx" x1 "sy" y1 "vx" vx1 "vy" vy1)
+       (recur (+ 1 now) until x1 y1 vx1 vy1))))
+
+(defn mag-solver [data]
+  (let [eta (hohman-duration (:current-radius data) (:target-radius data))
+	arrival-pos (hohman-mirror (:sx data) (:sy data) (:current-radius data) (:target-radius data))
+	their-pos (predict-circular-position (:px data) (:py data) eta)]
+
+    (println (:t data) "if we start now, we arrive at" arrival-pos "at time" (+ eta (:t data)) 
+	     ". at that time, we think they will be at:" their-pos
+	     "they are currently at { :px " (:px data) ":py" (:py data) "}")
+    
+    (if (> 1000 (vec-norm (- (:sx arrival-pos) (:sx their-pos)) (- (:sy arrival-pos) (:sy their-pos))))
+      (do (set-solver hohman-solver)
+	  (hohman-solver data))
+      {})))
+
+(defn prediction-solver
+  [data]
+  (let [deltat 10
+	futurepos (predict-circular-position (:sx data) (:sy data) deltat)]
+    (println (:t data) "current px:" (:sx data) "current py:" (:sy data)
+	     "guess at t=" (+ deltat (:t data)) "px:" (:sx futurepos) "py:" (:sy futurepos))
+    {}))
+
+
+(def last-simulation (ref {}))
+(defn simulation-solver 
+  [data]
+  (let [theirv (their-current-velocity 	(:px data) (:py data))
+	their-data (simulate-object (:t data) (+ 1 (:t data)) 
+				    (:px data) (:py data) 
+				    (:vx theirv) (:vy theirv))]
+    (println "actual sx" (:px data) "sy" (:py data) "vx" (:vx theirv) "vy" (:vy theirv))
+    (if (contains? @last-simulation :sy)
+      (do 
+	(println "pos error" (vec-norm (- (:sx @last-simulation) (:px data)) 
+					 (- (:sy @last-simulation) (:py data))))
+	(println "v error" (vec-norm (- (:vx @last-simulation) (:vx theirv)) 
+				     (- (:vy @last-simulation) (:vy theirv))))))
+    (println "------")
+    (println "expected next" their-data)
+    (dosync (ref-set last-simulation their-data))
+    {}))
+    
+	    
+(defn -main []
+  (set-solver (waiting-solver 3 mag-solver mag-solver))
+;  (set-solver (waiting-solver 3 simulation-solver simulation-solver))
+;  (set-solver (waiting-solver 3 prediction-solver prediction-solver))
   (doto (new VirtualMachine)
     (. load "problems/bin2.obf")
     (. run 2001 100000 (compute-meet-and-greet solve)))
