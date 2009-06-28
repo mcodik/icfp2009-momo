@@ -175,19 +175,19 @@
     (if (< error (:error @min-error))
       (dosync (ref-set min-error { :error error :t (:t data) })))
 
-    (println (:t data) "if we start now, we arrive at" arrival-pos "norm=" (vec-norm (:sx arrival-pos) (:sy arrival-pos))
-	     "at time" (+ eta (:t data)) 
-	     ". at that time, we think they will be at:" their-pos
-	     "error" error " best so far was " (:error @min-error) 
-	     "at t= " (:t @min-error) "they are currently at { :px " (:px data) ":py" (:py data) "}"
-	     "norm=" (:target-radius data))
-
     (if (> 1000 error)
       (let [s (hohman-solver (fn [d2]
 				 (println "arrived: " d2 "distance from other sattelite"
 					  (vec-norm (:bx d2) (:by d2)))
 				 (set-solver noop)
 				 {}))]
+	(println (:t data) "if we start now, we arrive at" arrival-pos 
+		 "norm=" (vec-norm (:sx arrival-pos) (:sy arrival-pos))
+		 "at time" (+ eta (:t data)) 
+		 ". at that time, we think they will be at:" their-pos
+		 "error" error " best so far was " (:error @min-error) 
+		 "at t= " (:t @min-error) "they are currently at { :px " (:px data) ":py" (:py data) "}"
+		 "norm=" (:target-radius data))
 	(set-solver s)
 	(s data))
       {})))
@@ -239,4 +239,4 @@
        (set-solver (waiting-solver 3 mag-solver mag-solver))
        (doto (new VirtualMachine)
 	 (. load "problems/bin2.obf")
-	 (. run config 100000 (compute-meet-and-greet solve)))))))
+	 (. run config 100000000 (compute-meet-and-greet solve)))))))

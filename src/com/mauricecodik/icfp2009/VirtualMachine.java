@@ -217,8 +217,11 @@ public class VirtualMachine {
 		if (configuration > 1000 && configuration < 2000) {
 			vz = new Visualizer(900, 1.0/100000.0);
 		}
-		else {
+		else if (configuration == 2001){
 			vz = new Visualizer(900, 1.0/50000.0);
+		}
+		else {
+			vz = new Visualizer(900, 1.0/500000.0);
 		}
 		
 		for (iteration = 0; iteration < maxIterations; iteration++) {
@@ -236,8 +239,9 @@ public class VirtualMachine {
 				double themx = getOutput(4);
 				double themy = getOutput(5);
 
-				if (iteration % 50 == 0)
+				if (iteration % 50 == 0) {
 					vz.addPoint("them", themx - mex, themy - mey);
+				}
 			}
 			
 			vz.addCircle(0, 0, 6357000.0);
