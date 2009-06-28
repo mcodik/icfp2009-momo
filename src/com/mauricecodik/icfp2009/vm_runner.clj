@@ -100,5 +100,5 @@
   (set-solver (waiting-solver 3 entry-solver entry-solver))
   (doto (new VirtualMachine)
     (. load "problems/bin1.obf")
-    (. run 1001 100000 (compute-hohman solve-hohman)))
+    (. run 1004 100000 (compute-hohman solve-hohman)))
 )
