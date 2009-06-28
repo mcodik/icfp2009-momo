@@ -7,4 +7,4 @@ mkdir clj-out
 
 java -cp $CLASSPATH -Dclojure.compile.path=clj-out clojure.lang.Compile $1
 
-java -cp $CLASSPATH $1
+java -cp $CLASSPATH $1 $2

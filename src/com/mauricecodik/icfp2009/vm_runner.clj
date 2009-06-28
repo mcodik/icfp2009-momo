@@ -90,7 +90,8 @@
 	theta (Math/atan2 x y)
 	deltat (hohman-duration current-radius target-radius)
 	phi (+ theta (* deltat (Math/sqrt (/ mu (* r r r)))))]
-    { :sx (* r (Math/sin phi)) :sy (* r (Math/cos phi)) }))
+    { :sx (* target-radius (Math/sin phi)) 
+      :sy (* target-radius (Math/cos phi)) }))
   
 (defn noop [data] {})
 
@@ -136,7 +137,6 @@
     (println "hohmann entry: current altitude: " (:current-radius data) 
 	     " computed entry dv = " deltav " eta " eta)
     (burn data 1 deltav (waiting-solver eta exit-solver exit-solver))))
-
 
 (defn vec-diff [x1 y1 x2 y2]
      { :sx (- x2 x1) :sy (- y2 y1) })
@@ -204,11 +204,22 @@
     {}))
     
 	    
-(defn -main []
-  (set-solver (waiting-solver 3 mag-solver mag-solver))
+(defn -main [configs]
+;  (set-solver (waiting-solver 3 mag-solver mag-solver))
 ;  (set-solver (waiting-solver 3 simulation-solver simulation-solver))
 ;  (set-solver (waiting-solver 3 prediction-solver prediction-solver))
-  (doto (new VirtualMachine)
-    (. load "problems/bin2.obf")
-    (. run 2001 100000 (compute-meet-and-greet solve)))
-)
+  (println "running config" configs) 
+  (let [config (Integer/parseInt configs)]
+    (cond
+     (and (> 1000 config) (< 2000 config))
+     (do
+       (set-solver (waiting-solver 3 hohman-solver hohman-solver))
+       (doto (new VirtualMachine)
+	 (. load "problems/bin1.obf")
+	 (. run config 100000 (compute-hohman solve))))
+     :otherwise 
+     (do
+       (set-solver (waiting-solver 3 mag-solver mag-solver))
+       (doto (new VirtualMachine)
+	 (. load "problems/bin2.obf")
+	 (. run config 100000 (compute-meet-and-greet solve)))))))
