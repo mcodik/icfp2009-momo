@@ -14,10 +14,10 @@
 		  :sx (. vm getOutput 2)
 		  :sy (. vm getOutput 3)
 		  :target-radius (. vm getOutput 4)
-                  :t (. vm getCurrentIteration) 
-		  :current-radius (vec-norm (. vm getOutput 2) (. vm getOutput 3))}
+		  :current-radius (vec-norm (. vm getOutput 2) (. vm getOutput 3))
+                  :t (. vm getCurrentIteration) }
 	    output (inner data)]
-	(println data " -> " output)
+;	(println data " -> " output)
 	(if (contains? output :vx) (. vm setInput 2 (double (:vx output))))
 	(if (contains? output :vy) (. vm setInput 3 (double (:vy output))))
 	(dosync (ref-set prev-data data))
@@ -32,8 +32,8 @@
      :y (* norm (Math/cos theta)) }))
 
 (defn current-velocity [x y] 
-  { :vx (Math/abs (- x (:sx @prev-data)))
-    :vy (Math/abs (- y (:sy @prev-data)))  })
+  { :vx (- x (:sx @prev-data))
+    :vy (- y (:sy @prev-data))  })
 
 (defn apply-deltav [currentv deltav] 
   (let [theta (Math/atan2 (:vx currentv) (:vy currentv))]
@@ -55,54 +55,49 @@
 
 (def current-solver (ref noop))
 
-(defn stabilize [next-solver]
-     (dosync (ref-set current-solver next-solver))
-     { :vx 0 :vy 0 })
-
-(defn stabilize-next-iter [next-solver]
-     (dosync (ref-set current-solver
-		      (fn [data] (stabilize next-solver)))))
-
-(defn exit-solver [data]
-     (if (> 1000.0 (Math/abs (- (:target-radius data) (:current-radius data))))
-       (let [deltav (hohman-exit-deltav (:current-radius data) (:target-radius data))
-	     currentv (current-velocity (:sx data) (:sy data))
-	     newv (apply-deltav currentv deltav)]
-	 (println "hohmann exit: current altitude: " (:current-radius data)  " current v = " currentv 
-		  " computed exit dv = " deltav " newv " newv)
-	 (stabilize-next-iter noop)
-	 newv)
-       {}))
-
-(defn stabilize-next-then-wait-until [time next-solver]
-  (dosync (ref-set current-solver
-		   (fn [foo] 
-		       (dosync (ref-set current-solver 
-					(fn [data]
-					    (if (= time (:t data))
-					      (do 
-						(dosync (ref-set current-solver next-solver))
-						(next-solver data))
-					      {}))))
-			       { :vx 0 :vy 0 }))))
-
-(defn entry-solver [data]
-  (if (= 3 (:t data)) 
-    (let [deltav (hohman-entry-deltav (:current-radius data) (:target-radius data))
-	  currentv (current-velocity (:sx data) (:sy data))
-	  newv (apply-deltav currentv deltav)
-	  eta (+ (:t data) (hohman-duration (:current-radius data) (:target-radius data)))]
-      (println "hohmann entry: current altitude: " (:current-radius data) " current v = " currentv 
-	       " computed entry dv = " deltav " newv " newv 
-	       " eta " eta)
-      (stabilize-next-then-wait-until eta exit-solver)
-      newv)
-    {}))
+(defn set-solver [f]
+  (dosync (ref-set current-solver f)))
 
 (defn solve-hohman [data] (@current-solver data))
 
+(defn waiting-solver [stop-time action-at-stop next]
+  (fn [data]
+      (if (= stop-time (:t data))
+	(do 
+	  (println "waiting-solver transtion to " next) 
+	  (set-solver next)
+	  (action-at-stop data))
+	{})))
+
+(defn burn [data duration deltav next-solver]
+  (let [currentv (current-velocity (:sx data) (:sy data))
+	newv (apply-deltav currentv deltav)
+	finalv { :vx (+ (:vx currentv) (:vx newv)) :vy (+ (:vy currentv) (:vy newv)) }
+	until (+ (:t data) duration)]
+    (println "burn until " until ". deltav= " deltav 
+	     " currentv= " currentv " (norm= " (vec-norm (:vx currentv) (:vy currentv)) ")" 
+	     "newv= " newv " (norm= " (vec-norm (:vx newv) (:vy newv)) ")" 
+	     "finalv norm= " (+ (vec-norm (:vx currentv) (:vy currentv))
+				(vec-norm (:vx newv) (:vy newv))))
+    (println data)
+    (set-solver (waiting-solver until (fn [data] { :vx 0 :vy 0 }) next-solver))
+    newv))
+  
+(defn entry-solver [data]
+  (let [deltav (hohman-entry-deltav (:current-radius data) (:target-radius data))
+	exit-deltav (hohman-exit-deltav (:current-radius data) (:target-radius data))
+	eta (+ (:t data) (hohman-duration (:current-radius data) (:target-radius data)))
+	exit-solver 
+	  (fn [data2] 
+	      (println "hohmann exit: current altitude: " (:current-radius data2)
+		       " computed exit dv = " exit-deltav)
+	      (burn data2 1 exit-deltav noop))]
+    (println "hohmann entry: current altitude: " (:current-radius data) 
+	     " computed entry dv = " deltav " eta " eta)
+    (burn data 1 deltav (waiting-solver eta exit-solver exit-solver))))
+
 (defn -main []
-  (dosync (ref-set current-solver entry-solver))
+  (set-solver (waiting-solver 3 entry-solver entry-solver))
   (doto (new VirtualMachine)
     (. load "problems/bin1.obf")
     (. run 1001 100000 (compute-hohman solve-hohman)))
