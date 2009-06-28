@@ -113,7 +113,7 @@ public class Visualizer extends JFrame {
 		}
 		
 		if (pts.size() > 200) {
-			pts.subList(0, 199).clear();
+			pts.subList(0, 100).clear();
 		}
 		
 		Point p = new Point(x,y);
