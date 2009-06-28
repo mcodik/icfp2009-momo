@@ -29,16 +29,18 @@
 	    sy (. vm getOutput 3)
 	    bx (. vm getOutput 4)
 	    by (. vm getOutput 5)
+	    px (- bx sx)
+	    py (- by sy)
 	    data { :score (. vm getOutput 0)
 		  :fuel (. vm getOutput 1)
 		  :sx sx
 		  :sy sy
 		  :bx bx
 		  :by by
+		  :px px
+		  :py py
 		  :current-radius (vec-norm sx sy)
-		  :target-radius (vec-norm bx by)
-		  :px (- bx sx)
-		  :py (- by sy)
+		  :target-radius (vec-norm px py)
                   :t (. vm getCurrentIteration) }
 	    output (inner data)]
 ;	(println data " -> " output)
@@ -86,7 +88,7 @@
        { :sx (* r (Math/sin phi)) :sy (* r (Math/cos phi)) }))
 
 (defn hohman-mirror [x y current-radius target-radius]
-  (let [r (+ current-radius target-radius)
+  (let [r (/ (+ current-radius target-radius) 2.0)
 	theta (Math/atan2 x y)
 	deltat (hohman-duration current-radius target-radius)
 	phi (+ theta (* deltat (Math/sqrt (/ mu (* r r r)))))]
@@ -161,16 +163,25 @@
 ;       (println "simulation" now "sx" x1 "sy" y1 "vx" vx1 "vy" vy1)
        (recur (+ 1 now) until x1 y1 vx1 vy1))))
 
+(def min-error (ref {:error Double/MAX_VALUE :t 0}))
+
 (defn mag-solver [data]
   (let [eta (hohman-duration (:current-radius data) (:target-radius data))
 	arrival-pos (hohman-mirror (:sx data) (:sy data) (:current-radius data) (:target-radius data))
-	their-pos (predict-circular-position (:px data) (:py data) eta)]
+	their-pos (predict-circular-position (:px data) (:py data) eta)
+	error (vec-norm (- (:sx arrival-pos) (:sx their-pos)) (- (:sy arrival-pos) (:sy their-pos)))]
 
-    (println (:t data) "if we start now, we arrive at" arrival-pos "at time" (+ eta (:t data)) 
+    (if (< error (:error @min-error))
+      (dosync (ref-set min-error { :error error :t (:t data) })))
+
+    (println (:t data) "if we start now, we arrive at" arrival-pos "norm=" (vec-norm (:sx arrival-pos) (:sy arrival-pos))
+	     "at time" (+ eta (:t data)) 
 	     ". at that time, we think they will be at:" their-pos
-	     "they are currently at { :px " (:px data) ":py" (:py data) "}")
-    
-    (if (> 1000 (vec-norm (- (:sx arrival-pos) (:sx their-pos)) (- (:sy arrival-pos) (:sy their-pos))))
+	     "error" error " best so far was " (:error @min-error) 
+	     "at t= " (:t @min-error) "they are currently at { :px " (:px data) ":py" (:py data) "}"
+	     "norm=" (:target-radius data))
+
+    (if (> 1000 error)
       (do (set-solver hohman-solver)
 	  (hohman-solver data))
       {})))
