@@ -221,14 +221,26 @@ public class VirtualMachine {
 			
 			runIteration();
 			
-			double target = getOutput(4);
 			double mex = getOutput(2);
 			double mey = getOutput(3);
-			vz.addCircle(0, 0, target);
+			
+			if (configuration > 1000 && configuration < 1000) {
+				double target = getOutput(4);
+				vz.addCircle(0, 0, target);
+			}
+			else if (configuration > 2000) {
+				double themx = getOutput(4);
+				double themy = getOutput(5);
+
+				if (iteration % 50 == 0)
+					vz.addPoint("them", themx - mex, themy - mey);
+			}
+			
 			vz.addCircle(0, 0, 6357000.0);
 			
 			if (iteration % 50 == 0)
 				vz.addPoint("me", mex, mey);
+			
 			
 			vz.repaint();
 			

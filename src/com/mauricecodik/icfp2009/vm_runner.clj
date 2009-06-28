@@ -23,6 +23,24 @@
 	(dosync (ref-set prev-data data))
 )))
 
+
+(defn compute-meet-and-greet [inner]
+  (fn [vm]
+      (let [data { :score (. vm getOutput 0)
+		  :fuel (. vm getOutput 1)
+		  :sx (. vm getOutput 2)
+		  :sy (. vm getOutput 3)
+		  :bx (. vm getOutput 4)
+		  :by (. vm getOutput 5)
+		  :current-radius (vec-norm (. vm getOutput 2) (. vm getOutput 3))
+                  :t (. vm getCurrentIteration) }
+	    output (inner data)]
+;	(println data " -> " output)
+	(if (contains? output :vx) (. vm setInput 2 (double (:vx output))))
+	(if (contains? output :vy) (. vm setInput 3 (double (:vy output))))
+	(dosync (ref-set prev-data data))
+)))
+
 (def earth-size 6357000.0)
 
 (defn vec->coords [sx sy]
@@ -58,7 +76,7 @@
 (defn set-solver [f]
   (dosync (ref-set current-solver f)))
 
-(defn solve-hohman [data] (@current-solver data))
+(defn solve [data] (@current-solver data))
 
 (defn waiting-solver [stop-time action-at-stop next]
   (fn [data]
@@ -83,7 +101,7 @@
     (set-solver (waiting-solver until (fn [data] { :vx 0 :vy 0 }) next-solver))
     newv))
   
-(defn entry-solver [data]
+(defn hohman-solver [data]
   (let [deltav (hohman-entry-deltav (:current-radius data) (:target-radius data))
 	exit-deltav (hohman-exit-deltav (:current-radius data) (:target-radius data))
 	eta (+ (:t data) (hohman-duration (:current-radius data) (:target-radius data)))
@@ -97,8 +115,9 @@
     (burn data 1 deltav (waiting-solver eta exit-solver exit-solver))))
 
 (defn -main []
-  (set-solver (waiting-solver 3 entry-solver entry-solver))
+  ;(set-solver (waiting-solver 3 hohman-solver hohman-solver))
+
   (doto (new VirtualMachine)
-    (. load "problems/bin1.obf")
-    (. run 1004 100000 (compute-hohman solve-hohman)))
+    (. load "problems/bin2.obf")
+    (. run 2001 100000 (compute-meet-and-greet solve)))
 )
