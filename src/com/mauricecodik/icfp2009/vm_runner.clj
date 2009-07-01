@@ -226,17 +226,23 @@
 ;  (set-solver (waiting-solver 3 simulation-solver simulation-solver))
 ;  (set-solver (waiting-solver 3 prediction-solver prediction-solver))
   (println "running config" configs) 
-  (let [config (Integer/parseInt configs)]
-    (cond
-     (and (> 1000 config) (< 2000 config))
-     (let [s (hohman-solver noop)]
-       (set-solver (waiting-solver 3 s s))
-       (doto (new VirtualMachine)
-	 (. load "problems/bin1.obf")
-	 (. run config 100000 (compute-hohman solve))))
-     :otherwise 
-     (do
-       (set-solver (waiting-solver 3 mag-solver mag-solver))
-       (doto (new VirtualMachine)
-	 (. load "problems/bin2.obf")
-	 (. run config 100000000 (compute-meet-and-greet solve)))))))
+  
+  (if (= configs "benchmark")
+  	(doto (new VirtualMachine)
+  	  (. load "problems/bin2.obf")
+  	  (. run 2001 1000000 noop false))
+  
+	  (let [config (Integer/parseInt configs)]
+	    (cond
+	     (and (> 1000 config) (< 2000 config))
+	     (let [s (hohman-solver noop)]
+	       (set-solver (waiting-solver 3 s s))
+	       (doto (new VirtualMachine)
+		 (. load "problems/bin1.obf")
+		 (. run config 100000 (compute-hohman solve) true)))
+	     :otherwise 
+	     (do
+	       (set-solver (waiting-solver 3 mag-solver mag-solver))
+	       (doto (new VirtualMachine)
+		 (. load "problems/bin2.obf")
+		 (. run config 100000000 (compute-meet-and-greet solve) true)))))))

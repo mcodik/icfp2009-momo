@@ -44,7 +44,7 @@ public class VirtualMachine {
 		};
 		
 		vm.load(filename);
-		vm.run(configuration, 10000, callback);
+		vm.run(configuration, 10000, callback, true);
 	}
 	
 	public VirtualMachine() {
@@ -204,7 +204,7 @@ public class VirtualMachine {
 		//System.out.println("loaded " + frame + " frames from " + filename);
 	}
 	
-	public void run(int configuration, int maxIterations, IFn callback) {
+	public void run(int configuration, int maxIterations, IFn callback, boolean visualize) {
 
 		this.configuration = configuration;
 		
@@ -212,17 +212,21 @@ public class VirtualMachine {
 		Arrays.fill(output, 0.0);
 
 		setInput(0x3e80, configuration);
-		
-		Visualizer vz;
-		if (configuration > 1000 && configuration < 2000) {
-			vz = new Visualizer(900, 1.0/100000.0);
+
+		Visualizer vz = null;
+		if (visualize) { 
+			if (configuration > 1000 && configuration < 2000) {
+				vz = new Visualizer(900, 1.0/100000.0);
+			}
+			else if (configuration == 2001){
+				vz = new Visualizer(900, 1.0/50000.0);
+			}
+			else {
+				vz = new Visualizer(900, 1.0/500000.0);
+			}
 		}
-		else if (configuration == 2001){
-			vz = new Visualizer(900, 1.0/50000.0);
-		}
-		else {
-			vz = new Visualizer(900, 1.0/500000.0);
-		}
+	
+		long startTime = System.currentTimeMillis();
 		
 		for (iteration = 0; iteration < maxIterations; iteration++) {
 			
@@ -230,32 +234,27 @@ public class VirtualMachine {
 			
 			double mex = getOutput(2);
 			double mey = getOutput(3);
-			
-			if (configuration > 1000 && configuration < 2000) {
-				double target = getOutput(4);
-				vz.addCircle(0, 0, target);
-			}
-			else if (configuration > 2000) {
-				double themx = getOutput(4);
-				double themy = getOutput(5);
 
-				if (iteration % 50 == 0) {
-					vz.addPoint("them", themx - mex, themy - mey);
+			if (vz != null) {
+				if (configuration > 1000 && configuration < 2000) {
+					double target = getOutput(4);
+					vz.addCircle(0, 0, target);
 				}
-			}
-			
-			vz.addCircle(0, 0, 6357000.0);
-			
-			if (iteration % 50 == 0)
-				vz.addPoint("me", mex, mey);
-			
-			
-			vz.repaint();
-			
-			double altitude = Math.sqrt( (mex*mex) + (mey*mey) ) - 6357000.0;
-			
-			if (altitude < 0) {
-				System.out.println("Crash landing: " + altitude);
+				else if (configuration > 2000) {
+					double themx = getOutput(4);
+					double themy = getOutput(5);
+	
+					if (iteration % 50 == 0) {
+						vz.addPoint("them", themx - mex, themy - mey);
+					}
+				}
+				
+				vz.addCircle(0, 0, 6357000.0);
+				
+				if (iteration % 50 == 0)
+					vz.addPoint("me", mex, mey);
+				
+				vz.repaint();
 			}
 			
 			if (getOutput(0) != 0.0) {
@@ -284,6 +283,15 @@ public class VirtualMachine {
 					throw new RuntimeException("caught exn from callback", e);
 				}
 
+			}
+			
+			if (iteration % 10000 == 0) {
+				long now = System.currentTimeMillis();
+				
+				double secondsElapsed = (now-startTime)/1000.0;
+				
+				System.err.println("iteration " + iteration + ": " + (iteration/secondsElapsed) + " iter/s");
+				startTime = now;
 			}
 		}
 		
