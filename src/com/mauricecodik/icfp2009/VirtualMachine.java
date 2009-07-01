@@ -291,7 +291,6 @@ public class VirtualMachine {
 				double secondsElapsed = (now-startTime)/1000.0;
 				
 				System.err.println("iteration " + iteration + ": " + (iteration/secondsElapsed) + " iter/s");
-				startTime = now;
 			}
 		}
 		
